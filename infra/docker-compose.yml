@@ -1,0 +1,153 @@
+services:
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: aegistwin_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aegistwin}
+      POSTGRES_USER: ${POSTGRES_USER:-aegistwin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aegistwin_dev_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aegistwin} -d ${POSTGRES_DB:-aegistwin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: aegistwin_redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Backend (FastAPI + Uvicorn) ────────────────────────────────────────────
+  backend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    container_name: aegistwin_backend
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-aegistwin}:${POSTGRES_PASSWORD:-aegistwin_dev_password}@db:5432/${POSTGRES_DB:-aegistwin}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../backend:/app/backend:ro
+    command: >
+      sh -c "cd /app/backend && echo '==> Running Alembic migrations...' && alembic upgrade head && echo '==> Seeding demo data...' && python -m app.seed.demo_seed && echo '==> Starting API server...' && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/backend"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # ── Celery Worker (Offensive + Defensive queues) ───────────────────────────
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    container_name: aegistwin_worker
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-aegistwin}:${POSTGRES_PASSWORD:-aegistwin_dev_password}@db:5432/${POSTGRES_DB:-aegistwin}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - ../backend:/app/backend:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Celery worker has no HTTP port — verify redis broker is reachable via Python
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import redis; r=redis.Redis(host='redis',port=6379,db=1); r.ping(); print('ok')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    command: >
+      sh -c "cd /app/backend && celery -A app.workers.celery_app worker --loglevel=info --concurrency=4 -Q offensive,defensive,celery"
+
+  # ── Flower (Celery Task Monitor — dev only) ────────────────────────────────
+  flower:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    container_name: aegistwin_flower
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      FLOWER_BASIC_AUTH: admin:aegistwin_flower_pw
+    ports:
+      - "5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "celery --broker=redis://redis:6379/1 flower --port=5555 --basic_auth=admin:aegistwin_flower_pw"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -u admin:aegistwin_flower_pw http://localhost:5555/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ── Frontend (React via nginx) ─────────────────────────────────────────────
+  frontend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.frontend
+    container_name: aegistwin_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      VITE_API_BASE_URL: /api/v1
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  default:
+    name: aegistwin_network

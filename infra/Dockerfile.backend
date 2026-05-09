@@ -1,0 +1,48 @@
+FROM python:3.11-slim
+
+# Build args
+ARG DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /app
+
+# System deps: gcc for psycopg2 native, curl for healthchecks
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies first (layer cache friendly)
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir \
+        "fastapi>=0.111.0" \
+        "uvicorn[standard]>=0.29.0" \
+        "sqlalchemy[asyncio]>=2.0.30" \
+        "asyncpg>=0.29.0" \
+        "alembic>=1.13.0" \
+        "pydantic>=2.7.0" \
+        "pydantic-settings>=2.3.0" \
+        "python-jose[cryptography]>=3.3.0" \
+        "passlib[bcrypt]>=1.7.4" \
+        "python-multipart>=0.0.9" \
+        "celery[redis]>=5.4.0" \
+        "redis>=5.0.0" \
+        "flower>=2.0.1" \
+        "httpx>=0.27.0" \
+        "python-dotenv>=1.0.0" \
+        "structlog>=24.1.0" \
+        "rich>=13.7.0" \
+        "networkx>=3.3"
+
+# Copy application code
+COPY backend/ ./backend/
+
+# Copy alembic config (sits in backend/)
+WORKDIR /app/backend
+
+EXPOSE 8000
+
+# Healthcheck — polls the liveness endpoint
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1

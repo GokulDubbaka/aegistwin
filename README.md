@@ -1,209 +1,125 @@
-<div align="center">
+# 🛡️ AegisTwin — Dual-Agent AI Cybersecurity Platform
 
-# 🛡️ AegisTwin
+> **Status:** Early-stage research prototype · Not production-ready for live red-teaming · Seeking contributors
 
-**Dual-agent AI cybersecurity platform: Offensive Red Team + Defensive Hunter sharing a live Company Digital Twin.**
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111%2B-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-18%2B-61DAFB?logo=react)](https://react.dev)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-336791?logo=postgresql)](https://postgresql.org)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](https://docker.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-*Red Team attacks. Blue Team hunts. Both share one living model of your company.*
+---
 
-[Features](#-features) · [Architecture](#-architecture) · [Quick Start](#-quick-start) · [API Docs](#-api-docs)
+## 🎯 Vision
 
-</div>
+AegisTwin aspires to be an **autonomous, dual-agent AI cybersecurity platform** inspired by:
+
+- **[HPTSA](https://arxiv.org/abs/2406.05498)** (Hierarchical Planning and Task-Specific Agents, UIUC 2024) — multi-agent architecture where a planning supervisor orchestrates specialist sub-agents for autonomous vulnerability discovery
+- **[AISLE](https://aisle.com)** — AI Cyber Reasoning System that creates a digital twin of an organisation's software stack, autonomously finds exploitable vulnerabilities, generates patches, and raises verified PRs
+- **Claude Mythos** — The concept of AI agents that reason about their own capabilities, maintain consistent epistemic state, and explain their decisions in auditable chains
+
+**The core idea:** Two AI agents — an **Offensive Red Team** and a **Defensive Threat Hunter** — share a live *Company Digital Twin* (real asset inventory, CVE feeds, network topology). The red agent probes weaknesses; the blue agent detects the probes and hardens the defences. They race each other, producing measurable security posture improvements continuously.
 
 ---
 
-## ✨ Features
+## ✅ What We Have Actually Built
 
-### 🔴 Offensive Agent (Red Team)
-- **Autonomous mission planning** — AI generates and executes attack scenarios against the digital twin
-- **Attack Path Graph** — Visual kill-chain mapping (Initial Access → Lateral Movement → Impact)
-- **MITRE ATT&CK mapping** — Every finding tagged to technique IDs
-- **Deception deployment** — Plants honeytokens, honey credentials, and canary documents
-
-### 🔵 Defensive Agent (Blue Team)
-- **Real-time threat detection** — Monitors the digital twin for anomalous patterns
-- **Actor fingerprinting** — Clusters attacker behavior by timing, tool signatures, and TTP patterns
-- **Detection drafts** — AI generates Sigma/YARA rules from live attack observations
-- **Remediation queue** — Prioritized fix list with severity scoring and effort estimates
-
-### 🏢 Shared Digital Twin
-- **Asset inventory** — All company assets with criticality and data sensitivity scores
-- **Risk engine** — Continuous attack surface scoring across all tenant assets
-- **Tenant isolation** — Full multi-tenant architecture with row-level security
-- **Audit log** — Immutable record of every agentic decision made
-
-### 🖥️ Premium Dashboard
-- Real-time charts (Recharts) with live P&L-style risk metrics
-- Dark-mode cyberpunk UI built in React + TypeScript
-- Pages: Dashboard · Digital Twin · Attack Path Graph · Findings · Offensive Missions · Deception Events · Defensive Hunter · Remediation Queue · Actor Fingerprints
+| Component | Status | Notes |
+|-----------|--------|-------|
+| FastAPI backend with JWT auth | ✅ Working | `/auth`, `/tenants`, `/assets`, `/findings` endpoints |
+| PostgreSQL schema + Alembic migrations | ✅ Working | Multi-tenant isolation, immutable audit log trigger |
+| React + Vite frontend dashboard | ✅ Working | 11 pages: Digital Twin, Attack Graph, Mission Control, etc. |
+| Celery + Redis worker queue | ✅ Working | Background scan tasks dispatch correctly |
+| Docker Compose full-stack | ✅ Working | `docker-compose up` starts all 5 services |
+| Offensive agent scaffold | ✅ Scaffold | Agent class exists, LLM stub wired, tool broker defined |
+| Defensive agent scaffold | ✅ Scaffold | Detection draft generation stub present |
+| OSV.dev CVE integration | ✅ Working | Live dependency audit via public API |
+| Dynamic fuzzer module | ✅ Working | HTTP fuzzing with TLS control |
+| Attack graph engine | ✅ Scaffold | Node/edge model built, pathfinding not yet intelligent |
+| Policy engine | ✅ Working | Scope enforcement, tenant isolation, read-only constraints |
+| Deception fabric (honeypots) | ✅ Scaffold | Endpoint stubs present, no real decoy deployment |
 
 ---
 
-## 🏗️ Architecture
+## ❌ What We Have NOT Yet Achieved
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    React Frontend (Vite + TS)                │
-│  Dashboard · DigitalTwin · AttackPathGraph · Findings · ...  │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ REST API
-┌──────────────────────▼──────────────────────────────────────┐
-│              FastAPI Backend (Python 3.11)                   │
-│                                                              │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐      │
-│  │  Red Agent  │    │ Blue Agent  │    │ Risk Engine  │      │
-│  │ (Offensive) │    │ (Defensive) │    │  (Scoring)   │      │
-│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘      │
-│         │                  │                  │              │
-│  ┌──────▼──────────────────▼──────────────────▼──────┐      │
-│  │            Digital Twin (Shared State)             │      │
-│  │         Assets · Findings · Attack Paths           │      │
-│  └──────────────────────────┬─────────────────────────┘      │
-│                             │                                │
-│  ┌──────────────────────────▼─────────────────────────┐      │
-│  │       Tool Broker (Nmap · Metasploit · OSINT)      │      │
-│  └────────────────────────────────────────────────────┘      │
-└─────────────────────────────┬───────────────────────────────┘
-                              │
-┌─────────────────────────────▼───────────────────────────────┐
-│              PostgreSQL 15  +  Redis (Celery)                │
-└─────────────────────────────────────────────────────────────┘
-```
+### 1. Real Autonomous Agent Intelligence
+The agents are **scaffolds with LLM stubs**. They do not yet:
+- Autonomously select TTPs (Tactics, Techniques, Procedures) from the MITRE ATT&CK framework
+- Plan multi-step attack chains without human guidance
+- Learn from failed attempts and adapt strategy (no RL loop)
 
-**Project structure:**
-```
-aegistwin/
-├── backend/
-│   ├── app/
-│   │   ├── main.py           # FastAPI app entry point
-│   │   ├── api/              # REST endpoints (assets, tenants, detections, ...)
-│   │   ├── agents/           # Red & Blue agent logic
-│   │   ├── core/             # Config, policy engine
-│   │   ├── db/               # SQLAlchemy models
-│   │   ├── deception/        # Honeytoken / canary fabric
-│   │   ├── detections/       # Blue team detection agent
-│   │   ├── remediation/      # Fix queue generation
-│   │   ├── risk/             # Attack surface scoring engine
-│   │   ├── tool_broker/      # Security tool integrations
-│   │   └── workers/          # Celery async task queue
-│   └── alembic/              # Database migrations
-├── frontend/
-│   ├── src/
-│   │   ├── pages/            # React page components
-│   │   ├── api/              # API client + mock data
-│   │   └── index.css         # Global cyberpunk design system
-│   ├── eslint.config.js      # ESLint (flat config)
-│   └── vite.config.ts
-├── infra/
-│   ├── docker-compose.yml    # ← Run with: docker compose -f infra/docker-compose.yml up --build
-│   ├── init.sql              # Database initialization
-│   ├── Dockerfile.backend
-│   └── Dockerfile.frontend
-├── docs/                     # Architecture diagrams
-├── .env.example              # Environment template
-└── Makefile                  # Dev commands (wraps docker compose)
-```
+**Why:** Building a real HPTSA-style planning layer requires a fine-tuned or carefully prompted LLM that has been evaluated for cyber reasoning. We haven't validated any specific LLM for this task yet.
+
+### 2. Verified Patch Generation (AISLE-style)
+We detect CVEs but do not auto-generate or verify code patches. AISLE uses a CRS (Cyber Reasoning System) trained on exploit/patch pairs — a capability that takes 6–12 months of ML infrastructure work.
+
+### 3. Live Network Integration
+The Digital Twin is seeded with demo data. It cannot currently:
+- Ingest live asset inventory from AWS/GCP/Azure via cloud APIs
+- Pull real CVE matches for your actual dependency tree
+- Connect to SIEM streams (Splunk, Elastic SIEM)
+
+### 4. Red Agent ↔ Blue Agent Adversarial Loop
+The two agents do not yet communicate or compete. The closed-loop "Red finds → Blue detects → system hardens" cycle is the end goal but is not running.
 
 ---
 
-## ⚡ Quick Start
-
-### Prerequisites
-- **Docker & Docker Compose** (recommended)  
-  *or* Python 3.11+ + Node.js 18+ + PostgreSQL 15
-
-### Option A: Docker (Recommended)
+## 🚀 Quick Start
 
 ```bash
 git clone https://github.com/GokulDubbaka/aegistwin.git
 cd aegistwin
-
-cp .env.example .env
-# Edit .env with your values
-
-# docker-compose.yml lives in infra/
-docker compose -f infra/docker-compose.yml up --build
+cp .env.example .env          # edit with your secrets
+docker-compose -f infra/docker-compose.yml up --build
+# Open http://localhost:5173
 ```
 
-Open:
-- **Frontend:** http://localhost:80
-- **API Docs:** http://localhost:8000/docs
-
-### Option B: Manual Setup
-
+**Manual setup (without Docker):**
 ```bash
-# 1. Backend
 cd backend
-pip install -r requirements.txt        # install dependencies
-alembic upgrade head                   # run database migrations
-uvicorn app.main:app --reload --port 8000
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --reload
 
-# 2. Frontend (new terminal)
 cd frontend
 npm install
-npm run dev                            # starts on http://localhost:5173
+npm run dev
 ```
 
-> **Note:** For manual setup, set `DATABASE_URL` and `REDIS_URL` in your `.env` before running.
+---
+
+## 🤝 How You Can Help
+
+We are actively seeking collaborators in these specific areas:
+
+### 🧠 AI / ML
+- **LLM reasoning for cyber tasks:** Help us design and evaluate prompts (or fine-tune a small model) that can reason about MITRE ATT&CK TTPs, plan multi-step attack chains, and explain decisions
+- **Reinforcement Learning loop:** Design a reward function for the red/blue adversarial cycle — what does "better security posture" look like as a numerical signal?
+- **Cyber knowledge graph:** Help build the semantic layer connecting CVEs → exploits → affected asset types → mitigations
+
+### 🔒 Security Engineering
+- **Real asset ingestion:** Integrate AWS Config, GCP Asset Inventory, Azure Resource Graph APIs so the Digital Twin reflects real infrastructure
+- **SIEM connectors:** Write parsers for Splunk/Elastic/Sentinel alert formats
+- **Exploit validation:** Help design a safe, sandboxed environment where the offensive agent can *actually* test payloads (CTF-style isolated lab)
+
+### 🏗️ Backend / Infrastructure
+- **Celery task hardening:** Distributed job queuing for large-scale parallel scans
+- **Flower monitoring:** Fix the Celery Flower service configuration for production observability
+- **Rate limiting & throttling:** Protect the API from scan abuse
+
+### 🎨 Frontend
+- **Attack graph visualisation:** The current D3 graph is static — needs live WebSocket updates
+- **Real-time streaming dashboard:** Replace polling with WebSocket streams from the Celery workers
+
+> Open an issue or start a Discussion if you want to contribute. All experience levels welcome.
 
 ---
 
-## ⚙️ Configuration
+## ⚠️ Ethics & Legal
 
-Copy `.env.example` to `.env`:
-
-| Variable | Required | Description |
-|---|---|---|
-| `DATABASE_URL` | ✅ | PostgreSQL connection string |
-| `REDIS_URL` | ✅ | Redis for Celery task queue |
-| `SECRET_KEY` | ✅ | JWT signing secret (generate with `openssl rand -hex 32`) |
-| `ALLOWED_ORIGINS` | ✅ | CORS origins — use `http://localhost:5173` for manual, `http://localhost:80` for Docker |
-| `LLM_PROVIDER` | Optional | `anthropic` or `openai` |
-| `ANTHROPIC_API_KEY` | Optional | For AI-powered analysis |
-| `OPENAI_API_KEY` | Optional | Alternative LLM provider |
-
----
-
-## 📖 API Docs
-
-Once running, visit:
-- **Swagger UI:** http://localhost:8000/docs
-- **ReDoc:** http://localhost:8000/redoc
-
-Key endpoints:
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/v1/assets` | List all digital twin assets |
-| `POST` | `/api/v1/missions` | Launch offensive mission |
-| `GET` | `/api/v1/findings` | List all security findings |
-| `GET` | `/api/v1/attack-paths` | Get attack path graph |
-| `GET` | `/api/v1/detections` | List detection events |
-| `POST` | `/api/v1/deception/deploy` | Deploy honeytoken |
-| `GET` | `/api/v1/audit` | Immutable audit log |
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
+AegisTwin is designed **strictly for authorised security testing**. The offensive agent will only operate within explicitly defined scope. The policy engine enforces this at code level. Never use this against systems you do not own or have written permission to test.
 
 ---
 
 ## 📄 License
 
 MIT — see [LICENSE](LICENSE)
-
----
-
-## ⚠️ Legal Notice
-
-AegisTwin is designed for **authorized security testing only**. Only use against systems you own or have explicit written permission to test. Unauthorized use against third-party systems is illegal and unethical.
